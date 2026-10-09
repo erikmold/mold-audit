@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Manajemen Audit Mold - PT. Moriroku</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary: #003b73;
+            --secondary: #1e293b;
+            --accent: #005b9f;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { display: flex; height: 100vh; background-color: var(--bg-color); color: var(--text-main); overflow: hidden; }
+
+        .sidebar { width: 260px; background-color: var(--primary); color: white; display: flex; flex-direction: column; z-index: 10; }
+        .sidebar-header { padding: 20px; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 10px; }
+        .nav-menu { flex-grow: 1; padding: 20px 0; }
+        .nav-item { padding: 15px 25px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.3s; color: #cbd5e1; }
+        .nav-item:hover, .nav-item.active { background-color: rgba(255,255,255,0.1); color: white; border-left: 4px solid #fff; }
+        
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .topbar { background: var(--card-bg); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
+        .lang-switch button { border: none; background: #e2e8f0; padding: 5px 15px; margin-left: 5px; border-radius: 4px; cursor: pointer; font-weight: bold; color: var(--text-muted); }
+        .lang-switch button.active { background: var(--primary); color: white; }
+        
+        .page-content { padding: 30px; display: none; }
+        .page-content.active { display: block; }
+
+        .print-header { display: flex; align-items: center; gap: 20px; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 4px double var(--primary); }
+        .text-logo { font-size: 2.8rem; font-weight: 900; color: var(--primary); font-family: 'Arial Black', Impact, sans-serif; letter-spacing: 2px; margin-right: 10px; }
+        .print-title h2 { margin: 0; font-size: 1.5rem; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        .print-title p { margin: 5px 0 0 0; font-size: 1rem; color: var(--text-muted); font-weight: bold; }
+
+        .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .dash-card { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid var(--primary); }
+        .dash-card h3 { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 10px; }
+        .dash-card .value { font-size: 2rem; font-weight: bold; color: var(--text-main); }
+        
+        .supplier-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-size: 0.95rem; font-weight: bold; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .badge-safe { background-color: #d1fae5; color: #065f46; border-color: #34d399; }
+        .badge-warning { background-color: #fef3c7; color: #92400e; border-color: #fbbf24; }
+        .badge-danger { background-color: #fee2e2; color: #991b1b; border-color: #f87171; }
+        
+        .status-text { font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; display: inline-block; }
+        .text-safe { background: #d1fae5; color: #065f46; }
+        .text-warning { background: #fef3c7; color: #92400e; }
+        .text-danger { background: #fee2e2; color: #991b1b; }
+
+        .card { background: var(--card-bg); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .card-header { font-size: 1.1rem; font-weight: bold; color: var(--primary); border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 8px; }
+        .form-group label { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
+        input[type="text"], input[type="date"], select { padding: 10px; border: 1px solid var(--border); border-radius: 8px; outline: none; font-size: 0.95rem;}
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+        th { background: #f8fafc; color: var(--text-muted); font-size: 0.9rem; position: sticky; top: 0; z-index: 1;}
+        .center { text-align: center; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; transition: background 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-success { background: var(--success); }
+        .btn-danger { background: var(--danger); }
+        .btn-primary { background: var(--primary); }
+        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+        .btn-outline:hover { background: var(--bg-color); }
+        
+        .signature-grid { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px; }
+        .signature-box { text-align: center; }
+        canvas { border: 2px dashed var(--border); background: #f8fafc; border-radius: 8px; cursor: crosshair; }
+        .toolbar { display: flex; gap: 10px; align-items: center; }
+
+        /* EVIDENCE INPUT & PREVIEW STYLES */
+        .file-input { width: 100%; max-width: 150px; font-size: 0.8rem; padding: 5px; cursor: pointer; }
+        .evidence-preview { max-width: 80px; max-height: 80px; display: none; margin: 5px auto 0 auto; border-radius: 4px; border: 1px solid var(--border); object-fit: cover; }
+        .doc-preview { font-size: 0.75rem; background: #e2e8f0; color: #334155; padding: 6px; border-radius: 4px; word-break: break-all; margin-top: 5px; display: none; line-height: 1.2; text-align: center; }
+        .btn-remove-file { background: var(--danger); color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; margin-top: 5px; display: inline-block; font-weight: bold;}
+        .btn-remove-file:hover { opacity: 0.8; }
+
+        /* KLIK NAMA SUPPLIER & MODAL */
+        .clickable-supplier { color: var(--accent); font-weight: bold; cursor: pointer; text-decoration: underline; text-decoration-color: rgba(0,91,159,0.3); text-underline-offset: 3px; transition: 0.2s; }
+        .clickable-supplier:hover { color: var(--primary); text-decoration-color: var(--primary); }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--card-bg); width: 90%; max-width: 850px; max-height: 90vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .modal-header { padding: 20px 25px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--primary); color: white; }
+        .modal-header h3 { margin: 0; font-size: 1.2rem; }
+        .close-btn { background: transparent; border: none; color: white; font-size: 1.8rem; cursor: pointer; line-height: 1; }
+        .close-btn:hover { opacity: 0.8; }
+        .modal-body { padding: 25px; overflow-y: auto; flex-grow: 1; }
+        .detail-table th, .detail-table td { padding: 10px 15px; border: 1px solid var(--border); font-size: 0.95rem; vertical-align: middle; }
+        .detail-table th { background: #f8fafc; color: var(--text-muted); }
+        .status-badge { padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; display: inline-block; min-width: 40px; text-align: center; }
+        .bg-ok { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+        .bg-ng { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        .bg-na { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+        @media print {
+            .sidebar, .topbar, .action-bar, .btn, .toolbar, .modal-overlay, .btn-remove-file { display: none !important; }
+            .main-content { overflow: visible; height: auto; }
+            .page-content { padding: 0; display: block !important; }
+            #page-dashboard, #page-history { display: none !important; }
+            #page-form.active { display: block !important; }
+            .card { box-shadow: none; border: 1px solid #000; break-inside: avoid; margin-bottom: 10px; padding: 15px; }
+            body { background-color: white; height: auto; }
+            .print-header { border-bottom: 3px solid #000; }
+            .print-title h2, .text-logo { color: var(--primary) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            #action-buttons { display: none !important; }
+            /* Hide input file when printing, keep preview visible */
+            input[type="file"] { display: none !important; }
+            .evidence-preview, .doc-preview { margin-top: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">🛡️ Mold Maintenance</div>
+        <div class="nav-menu">
+            <div class="nav-item active" onclick="switchPage('dashboard')" id="nav-dashboard">📊 Dashboard</div>
+            <div class="nav-item" onclick="switchPage('form')" id="nav-form">📝 Audit Baru</div>
+            <div class="nav-item" onclick="switchPage('history')" id="nav-history">📂 Riwayat Audit</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="topbar">
+            <h2 id="topbar-title">Dashboard Utama</h2>
+            <div class="lang-switch">
+                <button class="active" onclick="setLang('id')" id="btn-id">ID</button>
+                <button onclick="setLang('jp')" id="btn-jp">JP</button>
+            </div>
+        </div>
+
+        <!-- PAGE: DASHBOARD -->
+        <div id="page-dashboard" class="page-content active">
+            <div class="dash-grid">
+                <div class="dash-card">
+                    <h3 id="lbl-tot-audit">Total Audit Selesai</h3>
+                    <div class="value" id="val-total">0</div>
+                </div>
+                <div class="dash-card" style="border-left-color: var(--success);">
+                    <h3 id="lbl-avg-score">Rata-rata Skor Kepatuhan</h3>
+                    <div class="value" id="val-avg">0%</div>
+                </div>
+                <div class="dash-card" style="border-left-color: var(--danger);">
+                    <h3 id="lbl-tot-ng">Total Temuan NG (Aktif)</h3>
+                    <div class="value" id="val-ng">0</div>
+                </div>
+            </div>
+
+            <div class="card" style="border-top: 4px solid var(--accent);">
+                <h3 class="card-header" id="lbl-plan-title">📅 Rencana Jadwal Audit (Plan Schedule)</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <input type="text" id="i-plan-sup" placeholder="Nama Supplier / Subcont" style="flex: 1; min-width: 200px;">
+                    <input type="date" id="i-plan-date">
+                    <button class="btn btn-primary" onclick="savePlan()" id="btn-add-plan">➕ Tambah</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="table-plans">
+                        <thead>
+                            <tr>
+                                <th id="th-plan-date">Tanggal Rencana</th>
+                                <th id="th-plan-sup">Supplier</th>
+                                <th id="th-plan-act" class="center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="body-plans"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-header" id="lbl-upcoming">Sistem Peringatan Jatuh Tempo (Otomatis 3 Bulan)</h3>
+                <div style="overflow-x: auto;">
+                    <table id="table-upcoming">
+                        <thead>
+                            <tr>
+                                <th>Supplier</th>
+                                <th id="th-last">Audit Terakhir</th>
+                                <th id="th-due">Jatuh Tempo</th>
+                                <th id="th-stat">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="body-upcoming"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-header" id="lbl-supplier-list">Status Supplier (Audit 3 Bulan)</h3>
+                <div id="supplier-container" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3 class="card-header" id="lbl-recent">Log Audit Terbaru</h3>
+                <div style="overflow-x: auto;">
+                    <table id="table-recent">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Supplier</th>
+                                <th>Mold ID</th>
+                                <th>Skor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="body-recent"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE: HISTORY -->
+        <div id="page-history" class="page-content">
+            <div class="card">
+                <div class="card-header">
+                    <span id="lbl-history-title">Database Riwayat Audit</span>
+                    <div class="toolbar">
+                        <select id="year-filter" onchange="renderHistory()">
+                            <option value="all">Semua Tahun</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="exportToPDF()" id="btn-export-pdf">📄 Save to PDF</button>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="table-history">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Supplier</th>
+                                <th>Mold ID</th>
+                                <th>Skor</th>
+                                <th class="center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="body-history"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE: NEW AUDIT FORM -->
+        <div id="page-form" class="page-content">
+            <div class="print-header">
+                <div class="text-logo">MORIROKU</div>
+                <div class="print-title">
+                    <h2 id="doc-title">MOLD ASSET CONTROL & AUDIT FORM</h2>
+                    <p>PT. Moriroku Technology Indonesia</p>
+                </div>
+            </div>
+
+            <div class="card info-grid">
+                <div class="form-group"><label id="lbl-date">Tanggal</label><input type="date" id="i-date"></div>
+                <div class="form-group"><label id="lbl-sup">Supplier (Subcont)</label><input type="text" id="i-sup"></div>
+                <div class="form-group"><label id="lbl-aud">Auditor (Leader)</label><input type="text" id="i-aud"></div>
+                <div class="form-group"><label id="lbl-mold">Nomor Aset Mold</label><input type="text" id="i-mold"></div>
+            </div>
+
+            <div class="card" style="background: var(--primary); color: white; display: flex; justify-content: space-between; align-items: center; padding: 15px 30px;">
+                <div style="font-size: 1.2rem;" id="lbl-live-score">Skor Kepatuhan Aset:</div>
+                <div style="font-size: 2rem; font-weight: bold; color: var(--success);"><span id="live-score">0</span>%</div>
+            </div>
+
+            <div id="checklist-container"></div>
+
+            <div class="card">
+                <h3 class="card-header" id="lbl-sign">Pengesahan Legalitas Aset (Signatures)</h3>
+                <div class="signature-grid">
+                    <div class="signature-box">
+                        <p id="lbl-sign-aud">Pihak 1: PT. Moriroku (Auditor)</p>
+                        <canvas id="canv-aud" width="300" height="150"></canvas>
+                        <br><button class="btn btn-outline" style="padding: 5px 10px; margin-top: 5px;" onclick="clearCanvas('canv-aud')">Clear</button>
+                    </div>
+                    <div class="signature-box">
+                        <p id="lbl-sign-sup">Pihak 2: Perwakilan Supplier (Subcont)</p>
+                        <canvas id="canv-sup" width="300" height="150"></canvas>
+                        <br><button class="btn btn-outline" style="padding: 5px 10px; margin-top: 5px;" onclick="clearCanvas('canv-sup')">Clear</button>
+                    </div>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 20px; text-align: center;" id="lbl-disclaimer">
+                    *Dengan menandatangani dokumen ini, pihak supplier menyatakan setuju untuk menjaga aset mold milik PT. Moriroku Technology Indonesia sesuai standar yang telah diaudit.
+                </p>
+            </div>
+
+            <div id="action-buttons" style="display: flex; gap: 15px; justify-content: flex-end; margin-bottom: 50px;">
+                <button class="btn btn-primary" onclick="downloadFormPDF()" id="btn-download-pdf">📄 Save to PDF</button>
+                <button class="btn btn-outline" onclick="window.print()" id="btn-print">🖨️ Cetak Form Legal</button>
+                <button class="btn btn-success" onclick="saveAudit()" id="btn-save">💾 Simpan Audit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETAIL AUDIT -->
+    <div id="modal-detail" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Detail Temuan Audit</h3>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body" id="modal-body-content">
+                <!-- Detail dimuat via JS -->
+            </div>
+        </div>
+    </div>
+
+<script>
+    const dbKey = 'MorirokuAuditsDB';
+    const planDbKey = 'MorirokuAuditPlansDB';
+    let audits = [];
+    let plans = [];
+    let currentLang = 'id';
+    
+    let formState = { results: {}, evidence: {}, total: 0 };
+
+    const i18n = {
+        id: {
+            navDash: "📊 Dashboard", navForm: "📝 Audit Baru", navHist: "📂 Riwayat Audit",
+            titleDash: "Dashboard Utama", titleForm: "Form Audit Mold", titleHist: "Database Riwayat Audit",
+            lblTotAudit: "Total Audit Selesai", lblAvgScore: "Rata-rata Skor", lblTotNg: "Total Temuan NG",
+            lblSupplierList: "Status Supplier (Audit 3 Bulan)", lblRecent: "Log Audit Terbaru", btnSave: "💾 Simpan Audit", btnPrint: "🖨️ Cetak Form Legal",
+            lblUpcoming: "Sistem Peringatan Jatuh Tempo (Otomatis 3 Bulan)", thLast: "Audit Terakhir", thDue: "Jatuh Tempo", thStat: "Status",
+            statSafe: "Aman", statWarn: "Mendekati", statOver: "Terlambat",
+            lblPlanTitle: "📅 Rencana Jadwal Audit (Plan Schedule)", iPlanSup: "Nama Supplier / Subcont", btnAddPlan: "➕ Tambah",
+            thPlanDate: "Tanggal Rencana", thPlanSup: "Supplier", thPlanAct: "Aksi",
+            docTitle: "MOLD ASSET CONTROL & AUDIT FORM",
+            signAud: "Pihak 1: PT. Moriroku (Auditor)", signSup: "Pihak 2: Perwakilan Supplier (Subcont)",
+            disclaimer: "*Dengan menandatangani dokumen ini, pihak supplier menyatakan setuju untuk menjaga aset mold milik PT. Moriroku Technology Indonesia sesuai standar yang telah diaudit.",
+            optAllYears: "Semua Tahun", btnExportPdf: "📄 Save to PDF", reportTitle: "Laporan Riwayat Audit Mold",
+            modDetailTitle: "Detail Audit:",
+            thEvidence: "Bukti/Evidence",
+            categories: [
+                { 
+                    name: "KATEGORI 1: PENYIMPANAN & 5S", 
+                    items: [
+                        "Core dan Cavity disemprot cairan rust preventive saat diturunkan.",
+                        "Saluran air (cooling channel) di-air blow hingga kering.",
+                        "Mold disimpan di rak/palet, bebas genangan oli/air.",
+                        "Tension Release/Locking plate terpasang kencang."
+                    ] 
+                },
+                { 
+                    name: "KATEGORI 2: PENANGANAN & SETUP MESIN", 
+                    items: [
+                        "Hoist crane dan eyebolt sesuai dengan tonase/berat mold.",
+                        "Torsi clamp standar, baut locating ring tidak dol.",
+                        "Koneksi air pendingin (nipple/pipa) tidak bocor.",
+                        "Koneksi hot runner dipasang sesuai zona, kabel aman."
+                    ] 
+                },
+                { 
+                    name: "KATEGORI 3: OPERASIONAL & PENCEGAHAN DEFECT", 
+                    items: [
+                        "Fitur Low Pressure Mold Protection diaktifkan di mesin.",
+                        "Tidak ada kebocoran air, oli, atau lelehan material (nozzle).",
+                        "Parting line bersih dari kerak dan tidak ada flashing parah.",
+                        "Slider, angular pin, dan ejector bergerak mulus tanpa bunyi kasar."
+                    ] 
+                },
+                { 
+                    name: "KATEGORI 4: PERAWATAN RUTIN (PREVENTIVE)", 
+                    items: [
+                        "Pembersihan core/cavity & gas vent awal dan akhir shift.",
+                        "Lubrikasi guide pin & rel slider dilakukan dengan grease khusus.",
+                        "Pencatatan aktual Shot Count harian berjalan untuk pantauan Usage-Based Maintenance (UBM).",
+                        "Jadwal Preventive Maintenance dipatuhi berdasarkan batas Waktu (TBM) atau jumlah Shot (UBM), mana yang tercapai lebih dulu.",
+                        "Pemeriksaan visual kondisi O-Ring sirkuit pendingin (tidak getas).",
+                        "Molding berstatus discontinued / service part (spare part) wajib dilakukan pengecekan dan pemeliharaan rutin minimal 1 tahun sekali."
+                    ] 
+                },
+                { 
+                    name: "KATEGORI 5: DOKUMENTASI", 
+                    items: [
+                        "Tersedia form checklist Time-Based Maintenance (harian/mingguan/bulanan) di area mesin.",
+                        "Terdapat laporan 5-Why jika ada historis kerusakan mold.",
+                        "BAST awal mold terdokumentasi lengkap dengan foto."
+                    ] 
+                }
+            ]
+        },
+        jp: {
+            navDash: "📊 ダッシュボード", navForm: "📝 新規監査", navHist: "📂 監査履歴",
+            titleDash: "メインダッシュボード", titleForm: "金型監査フォーム", titleHist: "監査履歴データベース",
+            lblTotAudit: "完了した監査数", lblAvgScore: "平均スコア", lblTotNg: "NGの総数",
+            lblSupplierList: "サプライヤーステータス (3ヶ月監査)", lblRecent: "最新の監査ログ", btnSave: "💾 保存", btnPrint: "🖨️ 印刷 (法的文書)",
+            lblUpcoming: "期日警告システム (自動3ヶ月)", thLast: "最終監査日", thDue: "期日", thStat: "ステータス",
+            statSafe: "安全", statWarn: "間近", statOver: "期限切れ",
+            lblPlanTitle: "📅 監査スケジュール計画", iPlanSup: "サプライヤー名", btnAddPlan: "➕ 追加",
+            thPlanDate: "予定日", thPlanSup: "サプライヤー", thPlanAct: "アクション",
+            docTitle: "金型資産管理および監査フォーム",
+            signAud: "第1当事者: モリロク (監査役)", signSup: "第2当事者: サプライヤー代表 (外注)",
+            disclaimer: "*この文書に署名することにより、サプライヤーはPT. Moriroku Technology Indonesiaの金型資産を監査基準に従って保守することに同意するものとします。",
+            optAllYears: "すべての年", btnExportPdf: "📄 PDFに保存", reportTitle: "金型監査履歴レポート",
+            modDetailTitle: "監査詳細:",
+            thEvidence: "証拠",
+            categories: [
+                { 
+                    name: "カテゴリ 1: 保管と5S", 
+                    items: [
+                        "金型を降ろす際、コアとキャビティに防錆剤が塗布されているか。",
+                        "冷却水管（冷却回路）はエアブローで乾燥されているか。",
+                        "金型はラック/パレット上に保管され、油や水の溜まりがないか。",
+                        "テンションリリース/ロッキングプレートがしっかり固定されているか。"
+                    ] 
+                },
+                { 
+                    name: "カテゴリ 2: 取り扱いと段取り", 
+                    items: [
+                        "ホイストクレーンとアイボルトの容量が金型の重量に適しているか。",
+                        "クランプの締め付けトルクが適切で、ロケートリングのボルトが摩耗していないか。",
+                        "冷却水配管（ニップル等）から水漏れがないか。",
+                        "ホットランナーの配線が正しく接続され、ケーブルがむき出しになっていないか。"
+                    ] 
+                },
+                { 
+                    name: "カテゴリ 3: 運用と不良防止", 
+                    items: [
+                        "成形機で低圧型閉じ（金型保護）機能が有効になっているか。",
+                        "成形機周辺で水、油、樹脂の漏れがないか。",
+                        "パーティングラインに樹脂カスがなく、ひどいバリがないか。",
+                        "スライダー、アンギュラピン、エジェクタが異音なくスムーズに動くか。"
+                    ] 
+                },
+                { 
+                    name: "カテゴリ 4: 定期メンテナンス (予防保全)", 
+                    items: [
+                        "シフトの開始時と終了時にコア/キャビティおよびガスベントを清掃しているか。",
+                        "ガイドピンとスライダーに専用グリスで潤滑を行っているか。",
+                        "使用量ベースの保守（UBM）を監視するために、実際のショット数が毎日記録されているか。",
+                        "予防保全（PM）は、時間ベースまたはショットベースのいずれか早い方のスケジュールに従って実行されているか。",
+                        "冷却回路のOリングの目視点検（劣化がないか）を行っているか。",
+                        "生産終了品またはサービスパーツ（補給部品）用の金型は、最低1年に1回の定期点検および保守を必ず実施しているか。"
+                    ] 
+                },
+                { 
+                    name: "カテゴリ 5: 文書化と記録", 
+                    items: [
+                        "機械付近に定期メンテナンス（時間ベース）のチェックリストがあるか。",
+                        "金型が破損した場合、なぜなぜ分析（5-Why）の報告書があるか。",
+                        "初期引渡書（BAST）が写真付きで文書化されているか。"
+                    ] 
+                }
+            ]
+        }
+    };
+
+    function switchPage(page) {
+        document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(`page-${page}`).classList.add('active');
+        document.getElementById(`nav-${page}`).classList.add('active');
+
+        const t = i18n[currentLang];
+        if(page === 'dashboard') {
+            document.getElementById('topbar-title').innerText = t.titleDash;
+            updateDashboard();
+        } else if(page === 'form') {
+            document.getElementById('topbar-title').innerText = t.titleForm;
+            setTimeout(() => { initCanvas('canv-aud'); initCanvas('canv-sup'); }, 100);
+        } else if(page === 'history') {
+            document.getElementById('topbar-title').innerText = t.titleHist;
+            populateYearFilter();
+            renderHistory();
+        }
+    }
+
+    function setLang(lang) {
+        currentLang = lang;
+        document.getElementById('btn-id').classList.toggle('active', lang === 'id');
+        document.getElementById('btn-jp').classList.toggle('active', lang === 'jp');
+        
+        const t = i18n[lang];
+        document.getElementById('nav-dashboard').innerText = t.navDash;
+        document.getElementById('nav-form').innerText = t.navForm;
+        document.getElementById('nav-history').innerText = t.navHist;
+        
+        document.getElementById('lbl-tot-audit').innerText = t.lblTotAudit;
+        document.getElementById('lbl-avg-score').innerText = t.lblAvgScore;
+        document.getElementById('lbl-tot-ng').innerText = t.lblTotNg;
+        document.getElementById('lbl-supplier-list').innerText = t.lblSupplierList;
+        document.getElementById('lbl-history-title').innerText = t.titleHist;
+        document.getElementById('lbl-recent').innerText = t.lblRecent;
+        document.getElementById('btn-save').innerHTML = t.btnSave;
+        document.getElementById('btn-print').innerHTML = t.btnPrint;
+        document.getElementById('btn-export-pdf').innerHTML = t.btnExportPdf;
+        document.getElementById('doc-title').innerText = t.docTitle;
+        document.getElementById('lbl-sign-aud').innerText = t.signAud;
+        document.getElementById('lbl-sign-sup').innerText = t.signSup;
+        document.getElementById('lbl-disclaimer').innerText = t.disclaimer;
+        
+        document.getElementById('lbl-upcoming').innerText = t.lblUpcoming;
+        document.getElementById('th-last').innerText = t.thLast;
+        document.getElementById('th-due').innerText = t.thDue;
+        document.getElementById('th-stat').innerText = t.thStat;
+        
+        document.getElementById('lbl-plan-title').innerText = t.lblPlanTitle;
+        document.getElementById('i-plan-sup').placeholder = t.iPlanSup;
+        document.getElementById('btn-add-plan').innerHTML = t.btnAddPlan;
+        document.getElementById('th-plan-date').innerText = t.thPlanDate;
+        document.getElementById('th-plan-sup').innerText = t.thPlanSup;
+        document.getElementById('th-plan-act').innerText = t.thPlanAct;
+
+        const yearSelect = document.getElementById('year-filter');
+        if(yearSelect.options.length > 0) {
+            yearSelect.options[0].text = t.optAllYears;
+        }
+
+        renderChecklist();
+        updateDashboard();
+        if(document.getElementById('page-history').classList.contains('active')) {
+            populateYearFilter();
+            renderHistory();
+        }
+    }
+
+    function renderChecklist() {
+        const t = i18n[currentLang];
+        const container = document.getElementById('checklist-container');
+        let html = ''; let itemIdx = 0; formState.total = 0;
+        formState.evidence = {};
+
+        t.categories.forEach(cat => {
+            html += `<div class="card"><h3 class="card-header">${cat.name}</h3>
+                    <div style="overflow-x: auto;">
+                    <table class="detail-table">
+                    <tr>
+                        <th width="45%">Item</th>
+                        <th class="center" width="10%">OK</th>
+                        <th class="center" width="10%">NG</th>
+                        <th class="center" width="10%">NA</th>
+                        <th class="center" width="25%">${t.thEvidence} (Opsional)</th>
+                    </tr>`;
+            cat.items.forEach(item => {
+                formState.total++;
+                html += `<tr>
+                            <td>${item}</td>
+                            <td class="center"><input type="radio" name="chk_${itemIdx}" value="OK" onchange="calcScore(${itemIdx})"></td>
+                            <td class="center"><input type="radio" name="chk_${itemIdx}" value="NG" onchange="calcScore(${itemIdx})"></td>
+                            <td class="center"><input type="radio" name="chk_${itemIdx}" value="NA" onchange="calcScore(${itemIdx})"></td>
+                            <td class="center">
+                                <input type="file" id="ev_input_${itemIdx}" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="file-input" onchange="handleEvidence(${itemIdx}, this)">
+                                <div id="ev_prev_container_${itemIdx}" style="display:none; margin-top:5px; text-align:center;">
+                                    <img id="ev_prev_img_${itemIdx}" class="evidence-preview">
+                                    <div id="ev_prev_doc_${itemIdx}" class="doc-preview"></div>
+                                    <button type="button" class="btn-remove-file" onclick="clearEvidence(${itemIdx})">Hapus</button>
+                                </div>
+                            </td>
+                         </tr>`;
+                itemIdx++;
+            });
+            html += `</table></div></div>`;
+        });
+        container.innerHTML = html;
+        document.getElementById('live-score').innerText = '0';
+        formState.results = {};
+    }
+
+    function handleEvidence(idx, input) {
+        const file = input.files[0];
+        const container = document.getElementById(`ev_prev_container_${idx}`);
+        const imgPreview = document.getElementById(`ev_prev_img_${idx}`);
+        const docPreview = document.getElementById(`ev_prev_doc_${idx}`);
+        
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const isImage = file.type.startsWith('image/');
+                
+                formState.evidence[idx] = {
+                    data: e.target.result,
+                    name: file.name,
+                    isImage: isImage
+                };
+                
+                container.style.display = 'block';
+                if (isImage) {
+                    imgPreview.src = e.target.result;
+                    imgPreview.style.display = 'block';
+                    docPreview.style.display = 'none';
+                } else {
+                    imgPreview.style.display = 'none';
+                    docPreview.innerText = '📄 ' + file.name;
+                    docPreview.style.display = 'block';
+                }
+            }
+            reader.readAsDataURL(file);
+        } else {
+            clearEvidence(idx);
+        }
+    }
+
+    // FUNGSI BARU: MENGHAPUS / CANCEL FILE YANG SALAH INPUT
+    function clearEvidence(idx) {
+        // Hapus data dari memori aplikasi
+        delete formState.evidence[idx];
+        
+        // Reset elemen input HTML agar kosong kembali
+        const fileInput = document.getElementById(`ev_input_${idx}`);
+        if(fileInput) fileInput.value = '';
+        
+        // Sembunyikan wadah pratinjau (preview) beserta tombol hapusnya
+        const container = document.getElementById(`ev_prev_container_${idx}`);
+        if(container) container.style.display = 'none';
+    }
+
+    function calcScore(idx) {
+        const selected = document.querySelector(`input[name="chk_${idx}"]:checked`);
+        if(selected) {
+            formState.results[idx] = selected.value;
+        }
+        let ok = 0; let na = 0;
+        for(let key in formState.results) {
+            if(formState.results[key] === 'OK') ok++;
+            if(formState.results[key] === 'NA') na++;
+        }
+        let applicable = formState.total - na;
+        let score = applicable > 0 ? Math.round((ok / applicable) * 100) : 0;
+        document.getElementById('live-score').innerText = score;
+    }
+
+    function savePlan() {
+        const sup = document.getElementById('i-plan-sup').value;
+        const date = document.getElementById('i-plan-date').value;
+        
+        if(!sup || !date) return;
+
+        plans.push({ id: Date.now(), supplier: sup, date: date });
+        plans.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        localforage.setItem(planDbKey, plans).then(() => {
+            document.getElementById('i-plan-sup').value = '';
+            document.getElementById('i-plan-date').value = '';
+            renderPlans();
+        }).catch(err => console.error(err));
+    }
+
+    function deletePlan(idx) {
+        plans.splice(idx, 1);
+        localforage.setItem(planDbKey, plans).then(() => renderPlans());
+    }
+
+    function renderPlans() {
+        let html = '';
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        plans.forEach((p, idx) => {
+            const pDate = new Date(p.date);
+            pDate.setHours(0,0,0,0);
+            
+            let statusStyle = '';
+            if (pDate < today) {
+                statusStyle = 'color: var(--danger); font-weight: bold;';
+            } else if (pDate.getTime() === today.getTime()) {
+                statusStyle = 'color: var(--warning); font-weight: bold;';
+            }
+            
+            html += `<tr>
+                <td style="${statusStyle}">${p.date}</td>
+                <td><strong>${p.supplier}</strong></td>
+                <td class="center"><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deletePlan(${idx})">Selesai / Hapus</button></td>
+            </tr>`;
+        });
+        
+        document.getElementById('body-plans').innerHTML = html || `<tr><td colspan="3" class="center">Belum ada jadwal yang direncanakan</td></tr>`;
+    }
+
+    function updateDashboard() {
+        renderPlans();
+
+        document.getElementById('val-total').innerText = audits.length;
+        let totalScore = 0; let totalNg = 0;
+        audits.forEach(a => { 
+            totalScore += a.score; 
+            for(let k in a.results) if(a.results[k] === 'NG') totalNg++;
+        });
+        let avg = audits.length > 0 ? Math.round(totalScore / audits.length) : 0;
+        document.getElementById('val-avg').innerText = avg + "%";
+        document.getElementById('val-ng').innerText = totalNg;
+
+        const t = i18n[currentLang];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); 
+        
+        let supplierMap = {};
+        audits.forEach(a => {
+            const supName = (a.supplier || "").trim().toUpperCase();
+            if(!supName) return;
+            const aDate = new Date(a.date);
+            aDate.setHours(0,0,0,0);
+            
+            if(!supplierMap[supName] || aDate > supplierMap[supName].lastDate) {
+                supplierMap[supName] = { name: supName, lastDate: aDate };
+            }
+        });
+
+        let upcomingList = [];
+        Object.values(supplierMap).forEach(sup => {
+            let dueDate = new Date(sup.lastDate);
+            dueDate.setMonth(dueDate.getMonth() + 3); 
+            
+            let diffTime = dueDate - today;
+            let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            let status = 'safe';
+            let badgeClass = 'badge-safe';
+            let txtClass = 'text-safe';
+            let statText = t.statSafe;
+
+            if (diffDays <= 0) {
+                status = 'danger'; badgeClass = 'badge-danger'; txtClass = 'text-danger'; statText = t.statOver;
+            } else if (diffDays <= 14) {
+                status = 'warning'; badgeClass = 'badge-warning'; txtClass = 'text-warning'; statText = t.statWarn;
+            }
+
+            upcomingList.push({
+                name: sup.name,
+                lastDateStr: sup.lastDate.toISOString().split('T')[0],
+                dueDateStr: dueDate.toISOString().split('T')[0],
+                diffDays: diffDays,
+                badgeClass: badgeClass,
+                txtClass: txtClass,
+                statText: statText
+            });
+        });
+
+        upcomingList.sort((a, b) => a.diffDays - b.diffDays);
+
+        let supplierHtml = '';
+        if (upcomingList.length > 0) {
+            upcomingList.forEach(sup => {
+                supplierHtml += `<span class="supplier-badge ${sup.badgeClass}">🏢 ${sup.name}</span>`;
+            });
+        } else {
+            supplierHtml = `<span style="color: var(--text-muted); font-size: 0.95rem;">Belum ada supplier yang diaudit</span>`;
+        }
+        document.getElementById('supplier-container').innerHTML = supplierHtml;
+
+        let htmlUpcoming = '';
+        upcomingList.forEach(sup => {
+            let dayText = currentLang === 'id' ? 'hari lagi' : '日後';
+            if(sup.diffDays < 0) dayText = currentLang === 'id' ? 'hari terlewat' : '日超過';
+            
+            htmlUpcoming += `<tr>
+                <td><strong>${sup.name}</strong></td>
+                <td>${sup.lastDateStr}</td>
+                <td>${sup.dueDateStr} <br><small style="color:var(--text-muted)">(${Math.abs(sup.diffDays)} ${dayText})</small></td>
+                <td><span class="status-text ${sup.txtClass}">${sup.statText}</span></td>
+            </tr>`;
+        });
+        document.getElementById('body-upcoming').innerHTML = htmlUpcoming || `<tr><td colspan="4" class="center">Kosong</td></tr>`;
+
+        let htmlRecent = '';
+        const recent = [...audits].reverse().slice(0, 3);
+        recent.forEach(a => {
+            htmlRecent += `<tr>
+                <td>${a.date}</td>
+                <td class="clickable-supplier" onclick="showDetail(${a.id})">${a.supplier}</td>
+                <td>${a.moldId}</td>
+                <td><strong style="color: ${a.score >= 80 ? 'var(--success)' : 'var(--danger)'}">${a.score}%</strong></td>
+            </tr>`;
+        });
+        document.getElementById('body-recent').innerHTML = htmlRecent || '<tr><td colspan="4" class="center">Belum ada data audit</td></tr>';
+    }
+
+    function populateYearFilter() {
+        const select = document.getElementById('year-filter');
+        const currentVal = select.value;
+        const t = i18n[currentLang];
+        
+        const years = [...new Set(audits.map(a => {
+            const d = new Date(a.date);
+            return isNaN(d.getFullYear()) ? null : d.getFullYear();
+        }))].filter(y => y !== null).sort((a, b) => b - a);
+
+        let html = `<option value="all">${t.optAllYears}</option>`;
+        years.forEach(y => { html += `<option value="${y}">${y}</option>`; });
+        select.innerHTML = html;
+        
+        if(currentVal && Array.from(select.options).some(opt => opt.value === currentVal)) { select.value = currentVal; }
+    }
+
+    function getFilteredAudits() {
+        const selectedYear = document.getElementById('year-filter').value;
+        if (selectedYear === 'all') return audits;
+        return audits.filter(a => {
+            const d = new Date(a.date);
+            return d.getFullYear().toString() === selectedYear;
+        });
+    }
+
+    function renderHistory() {
+        let html = '';
+        const filteredAudits = getFilteredAudits();
+        const revAudits = [...filteredAudits].reverse();
+        
+        revAudits.forEach(a => {
+            const originalIndex = audits.findIndex(orig => orig.id === a.id);
+            html += `<tr>
+                        <td>${a.date}</td>
+                        <td class="clickable-supplier" onclick="showDetail(${a.id})">${a.supplier}</td>
+                        <td>${a.moldId}</td>
+                        <td><strong style="color: ${a.score >= 80 ? 'var(--success)' : 'var(--danger)'}">${a.score}%</strong></td>
+                        <td class="center"><button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;" onclick="deleteAudit(${originalIndex})">Hapus</button></td>
+                     </tr>`;
+        });
+        document.getElementById('body-history').innerHTML = html || '<tr><td colspan="5" class="center">Kosong</td></tr>';
+    }
+
+    function showDetail(auditId) {
+        const audit = audits.find(a => a.id === auditId);
+        if (!audit) return;
+
+        const t = i18n[currentLang];
+        document.getElementById('modal-title').innerText = `${t.modDetailTitle} ${audit.supplier}`;
+
+        let html = `<div class="info-grid" style="margin-bottom: 20px;">
+                        <div><strong>Tanggal:</strong> ${audit.date}</div>
+                        <div><strong>Mold ID:</strong> ${audit.moldId}</div>
+                        <div><strong>Auditor:</strong> ${audit.auditor || '-'}</div>
+                        <div><strong>Skor:</strong> <span style="color: ${audit.score >= 80 ? 'var(--success)' : 'var(--danger)'}; font-weight:bold;">${audit.score}%</span></div>
+                    </div>`;
+        
+        html += `<table class="detail-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;">Item Pengecekan</th>
+                            <th style="width: 80px; text-align: center;">Status</th>
+                            <th style="width: 150px; text-align: center;">${t.thEvidence}</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+        
+        let itemIndex = 0;
+        t.categories.forEach(cat => {
+            let hasItems = false;
+            let catHtml = `<tr><td colspan="3" style="background: var(--bg-color); font-weight: bold; border: 1px solid var(--border); padding: 10px;">${cat.name}</td></tr>`;
+            
+            cat.items.forEach(item => {
+                let result = audit.results[itemIndex];
+                if (result) {
+                    hasItems = true;
+                    let badgeClass = result === 'OK' ? 'bg-ok' : (result === 'NG' ? 'bg-ng' : 'bg-na');
+                    
+                    let evHtml = `<span style="color: var(--text-muted); font-size: 0.85rem;">-</span>`;
+                    if (audit.evidence && audit.evidence[itemIndex]) {
+                        const ev = audit.evidence[itemIndex];
+                        if (typeof ev === 'string') {
+                            evHtml = `<img src="${ev}" style="max-height: 60px; max-width: 100px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; object-fit: cover;" onclick="window.open(this.src)" title="Klik untuk perbesar">`;
+                        } else if (ev.isImage) {
+                            evHtml = `<img src="${ev.data}" style="max-height: 60px; max-width: 100px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; object-fit: cover;" onclick="window.open(this.src)" title="Klik untuk perbesar">`;
+                        } else {
+                            evHtml = `<a href="${ev.data}" download="${ev.name}" style="display:inline-block; padding:6px 10px; background:var(--primary); color:white; text-decoration:none; border-radius:4px; font-size:0.75rem; text-align:center;">📄 Download<br>${ev.name}</a>`;
+                        }
+                    }
+
+                    catHtml += `<tr>
+                                    <td style="border: 1px solid var(--border); padding: 10px;">${item}</td>
+                                    <td style="border: 1px solid var(--border); padding: 10px; text-align: center;"><span class="status-badge ${badgeClass}">${result}</span></td>
+                                    <td style="border: 1px solid var(--border); padding: 10px; text-align: center;">${evHtml}</td>
+                                </tr>`;
+                }
+                itemIndex++;
+            });
+
+            if (hasItems) html += catHtml;
+        });
+
+        html += `</tbody></table>`;
+        
+        if(audit.signAud || audit.signSup) {
+            html += `<div style="display:flex; justify-content: space-around; margin-top:25px; padding-top:15px; border-top: 2px dashed var(--border);">
+                        <div style="text-align:center;">
+                            <p style="font-size: 0.85rem; color: var(--text-muted); font-weight:bold; margin-bottom: 5px;">${t.signAud}</p>
+                            ${audit.signAud ? `<img src="${audit.signAud}" style="height: 70px; border: 1px solid var(--border); border-radius:4px; padding: 5px; background: white;">` : ''}
+                        </div>
+                        <div style="text-align:center;">
+                            <p style="font-size: 0.85rem; color: var(--text-muted); font-weight:bold; margin-bottom: 5px;">${t.signSup}</p>
+                            ${audit.signSup ? `<img src="${audit.signSup}" style="height: 70px; border: 1px solid var(--border); border-radius:4px; padding: 5px; background: white;">` : ''}
+                        </div>
+                    </div>`;
+        }
+
+        document.getElementById('modal-body-content').innerHTML = html;
+        document.getElementById('modal-detail').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('modal-detail').style.display = 'none';
+    }
+
+    function exportToPDF() {
+        const filteredAudits = getFilteredAudits();
+        if(filteredAudits.length === 0) return;
+        const t = i18n[currentLang];
+        const selectedYear = document.getElementById('year-filter').value;
+        const yearText = selectedYear === 'all' ? (currentLang === 'id' ? 'Semua Tahun' : 'すべての年') : selectedYear;
+
+        window.jsPDF = window.jspdf.jsPDF;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(18);
+        doc.setTextColor(0, 59, 115);
+        doc.text("PT. MORIROKU TECHNOLOGY INDONESIA", 14, 20);
+        doc.setFontSize(14);
+        doc.setTextColor(30, 41, 59);
+        doc.text(t.reportTitle, 14, 30);
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Periode: ${yearText} | Dicetak: ${new Date().toLocaleDateString()}`, 14, 38);
+        
+        const head = [[
+            currentLang === 'id' ? 'Tanggal' : '日付',
+            currentLang === 'id' ? 'Supplier' : 'サプライヤー',
+            'Mold ID',
+            currentLang === 'id' ? 'Skor' : 'スコア'
+        ]];
+        
+        const body = [...filteredAudits].reverse().map(a => [
+            a.date, a.supplier, a.moldId, `${a.score}%`
+        ]);
+
+        doc.autoTable({ startY: 45, head: head, body: body, theme: 'striped', headStyles: { fillColor: [0, 59, 115] }, styles: { fontSize: 10, cellPadding: 4 }, alternateRowStyles: { fillColor: [241, 245, 249] } });
+        doc.save(`Audit_Report_${selectedYear}_${Date.now()}.pdf`);
+    }
+
+    function saveAudit() {
+        const date = document.getElementById('i-date').value;
+        const sup = document.getElementById('i-sup').value;
+        const mold = document.getElementById('i-mold').value;
+        const score = parseInt(document.getElementById('live-score').innerText) || 0;
+
+        if(!date || !sup || !mold) {
+            const btn = document.getElementById('btn-save');
+            const origText = btn.innerHTML;
+            btn.innerHTML = "⚠️ Isi Data Wajib!";
+            btn.classList.add('btn-danger');
+            btn.classList.remove('btn-success');
+            setTimeout(() => { btn.innerHTML = origText; btn.classList.remove('btn-danger'); btn.classList.add('btn-success'); }, 2000);
+            return;
+        }
+
+        const newAudit = {
+            id: Date.now(), date, supplier: sup, auditor: document.getElementById('i-aud').value, moldId: mold, score, 
+            results: { ...formState.results },
+            evidence: { ...formState.evidence },
+            signAud: document.getElementById('canv-aud').toDataURL(), signSup: document.getElementById('canv-sup').toDataURL()
+        };
+
+        audits.push(newAudit);
+        localforage.setItem(dbKey, audits).then(function() {
+            document.getElementById('i-date').value = ''; document.getElementById('i-sup').value = '';
+            document.getElementById('i-mold').value = ''; document.getElementById('i-aud').value = '';
+            clearCanvas('canv-aud'); clearCanvas('canv-sup');
+            renderChecklist();
+            switchPage('dashboard');
+        }).catch(function(err) { console.error("Storage failed", err); audits.pop(); });
+    }
+
+    function deleteAudit(idx) {
+        audits.splice(idx, 1);
+        localforage.setItem(dbKey, audits).then(function() { populateYearFilter(); renderHistory(); updateDashboard(); }).catch(function(err) { console.error("Delete failed", err); });
+    }
+
+    function downloadFormPDF() {
+        const formElement = document.getElementById('page-form');
+        const actionButtons = document.getElementById('action-buttons');
+        actionButtons.style.display = 'none';
+
+        const btnPdf = document.getElementById('btn-download-pdf');
+        const origText = btnPdf.innerHTML;
+        btnPdf.innerHTML = "⏳ Generating...";
+        btnPdf.disabled = true;
+
+        html2canvas(formElement, { scale: 2, useCORS: true }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new window.jspdf.jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            let heightLeft = imgHeight; let position = 0;
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+
+            const moldId = document.getElementById('i-mold').value || 'Mold';
+            pdf.save(`Form_Audit_${moldId}_${Date.now()}.pdf`);
+            actionButtons.style.display = 'flex';
+            btnPdf.innerHTML = origText;
+            btnPdf.disabled = false;
+        });
+    }
+
+    function initCanvas(id) {
+        const canvas = document.getElementById(id);
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#000';
+
+        const getPos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        };
+
+        canvas.onmousedown = canvas.ontouchstart = (e) => { isDrawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); e.preventDefault(); };
+        canvas.onmousemove = canvas.ontouchmove = (e) => { if(!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); };
+        canvas.onmouseup = canvas.onmouseout = canvas.ontouchend = () => isDrawing = false;
+    }
+    
+    function clearCanvas(id) { const c = document.getElementById(id); c.getContext('2d').clearRect(0,0,c.width,c.height); }
+
+    window.onload = () => {
+        setLang('id');
+        Promise.all([ localforage.getItem(dbKey), localforage.getItem(planDbKey) ]).then(function(values) {
+            audits = values[0] || []; plans = values[1] || [];
+            switchPage('dashboard');
+        }).catch(function(err) { console.error("Gagal memuat database:", err); audits = []; plans = []; switchPage('dashboard'); });
+    };
+</script>
+</body>
+</html>
